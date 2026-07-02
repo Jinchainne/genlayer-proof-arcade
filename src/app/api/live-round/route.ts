@@ -199,7 +199,7 @@ async function loadBuildRound() {
 
 async function loadJudgeRound() {
   const issues = await fetchJson<any[]>(
-    "https://api.github.com/repos/genlayerlabs/genlayer/issues?state=open&per_page=4",
+    "https://api.github.com/repos/genlayerlabs/genlayer-studio/issues?state=open&per_page=4",
     { headers: { accept: "application/vnd.github+json" } }
   );
   const liveIssues = issues
@@ -218,7 +218,7 @@ async function loadJudgeRound() {
     source: "GitHub / genlayerlabs",
     challenge: liveIssues[0]?.title ?? "No live issue",
     issues: liveIssues,
-    evidence: "Issue body, reproduction steps, and linked references act as live public evidence."
+    evidence: "Open issues from genlayer-studio, their reproduction steps, and linked references act as live public evidence."
   };
 }
 
