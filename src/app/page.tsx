@@ -346,6 +346,11 @@ type OverviewItem = {
   tone: "positive" | "warning" | "neutral";
 };
 
+type TickerItem = {
+  label: string;
+  value: string;
+};
+
 const mvpContractInterface = {
   create_round: "create_round(question, choices, resolution_rules, start_time, lock_time, end_time)",
   enter_round: "enter_round(round_id, choice, points)",
@@ -420,6 +425,10 @@ export default function HomePage() {
       }
     ];
   }, [activeGame.label, buildRound, judgeRound, newsRound, raceRound, walletAddress]);
+  const tickerItems = useMemo<TickerItem[]>(
+    () => buildTickerItems(activeGame, liveRound, walletAddress, contractStatus),
+    [activeGame, liveRound, walletAddress, contractStatus]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -591,6 +600,8 @@ export default function HomePage() {
         onMode={setMode}
       />
 
+      <TickerRail items={tickerItems} />
+
       <OverviewStrip items={overviewItems} />
 
       <section className="arcade-layout">
@@ -625,10 +636,33 @@ export default function HomePage() {
             onResolveRound={resolveRound}
           />
           <BalanceCard balance={walletBalance} walletAddress={walletAddress} />
+          <SystemPanel
+            activeGame={activeGame}
+            contractStatus={contractStatus}
+            liveRound={liveRound}
+            walletAddress={walletAddress}
+          />
           <SideLeaderboard />
         </aside>
       </section>
     </main>
+  );
+}
+
+function TickerRail({ items }: { items: TickerItem[] }) {
+  const loop = [...items, ...items];
+
+  return (
+    <section className="ticker-rail" aria-label="Live signal rail">
+      <div className="ticker-track">
+        {loop.map((item, index) => (
+          <div key={`${item.label}-${index}`} className="ticker-pill">
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -820,6 +854,7 @@ function GameBoard({
   const liveHeadline = extractHeadline(activeGame, liveRound);
   const liveChallenge = extractChallenge(activeGame, liveRound);
   const liveEvidence = extractEvidence(activeGame, liveRound);
+  const spotlightMetrics = buildSpotlightMetrics(activeGame, liveRound);
 
   return (
     <section className="game-stack">
@@ -852,6 +887,14 @@ function GameBoard({
               <span className="hero-tag">Consensus-ready</span>
               <span className="hero-tag">Global public evidence</span>
               <span className="hero-tag">{activeGame.liveEnabled ? "Live source" : "Queued source"}</span>
+            </div>
+            <div className="spotlight-grid">
+              {spotlightMetrics.map((metric) => (
+                <div key={metric.label} className="spotlight-card">
+                  <span>{metric.label}</span>
+                  <strong>{metric.value}</strong>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -1185,6 +1228,48 @@ function SideLeaderboard() {
   );
 }
 
+function SystemPanel({
+  activeGame,
+  contractStatus,
+  liveRound,
+  walletAddress
+}: {
+  activeGame: GameMode;
+  contractStatus: string;
+  liveRound: LiveRound | null;
+  walletAddress: string;
+}) {
+  const rows = [
+    { label: "Active deck", value: `${activeGame.label} / ${activeGame.asset}` },
+    { label: "Evidence source", value: liveRound?.source ?? "Syncing live source" },
+    { label: "Sync status", value: liveRound?.updatedAt ? `Updated ${formatUpdateTime(liveRound.updatedAt)}` : "Waiting for first sync" },
+    { label: "Wallet session", value: walletAddress ? shortAddress(walletAddress) : "Disconnected" }
+  ];
+
+  return (
+    <motion.article
+      className="game-card system-panel"
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.45, delay: 0.21 }}
+    >
+      <div className="section-kicker">Command center</div>
+      <div className="system-status-banner">
+        <span>Execution status</span>
+        <strong>{contractStatus}</strong>
+      </div>
+      <div className="system-rows">
+        {rows.map((row) => (
+          <div key={row.label} className="system-row">
+            <span>{row.label}</span>
+            <strong>{row.value}</strong>
+          </div>
+        ))}
+      </div>
+    </motion.article>
+  );
+}
+
 function BottomPanel({
   activeTab,
   positions,
@@ -1225,7 +1310,7 @@ function BottomPanel({
             <span>Size</span>
             <span>Status</span>
             <span>Round ID</span>
-            <span>Time</span>
+            <span>Time / Tx</span>
           </div>
           {positions.map((position) => (
             <div key={`${position.id}-${position.time}`} className="positions-row">
@@ -1235,7 +1320,7 @@ function BottomPanel({
               <span>{position.size}</span>
               <span className="pending">{position.status}</span>
               <span>{position.id}</span>
-              <span>{position.time}</span>
+              <span>{position.txHash ? `${position.time} • ${shortHash(position.txHash)}` : position.time}</span>
             </div>
           ))}
         </div>
@@ -1413,4 +1498,76 @@ function formatCompactUsd(value: number) {
 
 function formatUpdateTime(value: string) {
   return new Date(value).toLocaleTimeString("en-GB", { hour12: false });
+}
+
+function buildTickerItems(
+  activeGame: GameMode,
+  liveRound: LiveRound | null,
+  walletAddress: string,
+  contractStatus: string
+): TickerItem[] {
+  const base: TickerItem[] = [
+    { label: "Deck", value: `${activeGame.label} / ${activeGame.asset}` },
+    { label: "Source", value: liveRound?.source ?? "Syncing" },
+    { label: "Wallet", value: walletAddress ? shortAddress(walletAddress) : "Not connected" }
+  ];
+
+  if (liveRound?.type === "race") {
+    return [
+      { label: liveRound.asset, value: formatPrice(liveRound.price.last) },
+      { label: "24h volume", value: formatCompactUsd(liveRound.price.volume) },
+      { label: "Bid / Ask", value: `${formatPrice(liveRound.price.bid)} / ${formatPrice(liveRound.price.ask)}` },
+      ...base
+    ];
+  }
+
+  return [
+    { label: "Execution", value: contractStatus.length > 44 ? `${contractStatus.slice(0, 44)}...` : contractStatus },
+    ...base
+  ];
+}
+
+function buildSpotlightMetrics(activeGame: GameMode, liveRound: LiveRound | null) {
+  if (liveRound?.type === "race") {
+    return [
+      { label: "Last price", value: formatPrice(liveRound.price.last) },
+      { label: "To beat", value: formatPrice(liveRound.price.toBeat) },
+      { label: "Bid depth", value: liveRound.depth.bidDepth.toFixed(3) },
+      { label: "Ask depth", value: liveRound.depth.askDepth.toFixed(3) }
+    ];
+  }
+
+  if (liveRound?.type === "news-pulse") {
+    return [
+      { label: "Headlines", value: String(liveRound.headlines.length) },
+      { label: "Primary source", value: liveRound.headlines[0]?.source ?? "News" },
+      { label: "Updated", value: formatUpdateTime(liveRound.updatedAt) },
+      { label: "Mode", value: "Confirmation" }
+    ];
+  }
+
+  if (liveRound?.type === "build") {
+    return [
+      { label: "Live repos", value: String(liveRound.candidates.length) },
+      { label: "Top repo", value: liveRound.candidates[0]?.name ?? "N/A" },
+      { label: "Stars", value: String(liveRound.candidates[0]?.stars ?? 0) },
+      { label: "Updated", value: formatUpdateTime(liveRound.updatedAt) }
+    ];
+  }
+
+  if (liveRound?.type === "judge") {
+    return [
+      { label: "Open disputes", value: String(liveRound.issues.length) },
+      { label: "Evidence class", value: "GitHub issues" },
+      { label: "Top issue", value: `${liveRound.issues[0]?.comments ?? 0} comments` },
+      { label: "Updated", value: formatUpdateTime(liveRound.updatedAt) }
+    ];
+  }
+
+  return [
+    { label: "Mode", value: activeGame.label },
+    { label: "Evidence", value: liveRound?.source ?? "Public source" },
+    { label: "Updated", value: liveRound?.updatedAt ? formatUpdateTime(liveRound.updatedAt) : "Waiting" },
+    { label: "Status", value: activeGame.liveEnabled ? "Live" : "Ready" }
+  ];
 }
