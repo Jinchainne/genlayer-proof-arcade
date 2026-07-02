@@ -158,11 +158,12 @@ const navItems = ["Trade", "Arcade", "Portfolio", "Leaderboard", "Earn Points", 
 const tabs = ["Positions", "Perps", "Originals", "Outcomes", "Open Orders", "Balances", "History"] as const;
 const sizes = [1, 10, 50, 100];
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS;
+const STUDIO_NETWORK_NAME = "GenLayer Studio Network";
 const STUDIO_RPC_URL = "https://studio.genlayer.com/api";
 const STUDIO_CHAIN_ID_HEX = "0xf22f";
 const genLayerStudionet = defineChain({
   id: 61999,
-  name: "GenLayer Studionet",
+  name: STUDIO_NETWORK_NAME,
   nativeCurrency: {
     name: "GEN",
     symbol: "GEN",
@@ -477,7 +478,7 @@ export default function HomePage() {
       const balanceHex = await provider.request({ method: "eth_getBalance", params: [address, "latest"] }) as string;
       setWalletAddress(address);
       setWalletBalance(formatToken(balanceHex));
-      setWalletLabel(`${detectWalletName(provider)} / ${chainId === STUDIO_CHAIN_ID_HEX ? "Studionet" : chainId}`);
+      setWalletLabel(`${detectWalletName(provider)} / ${chainId === STUDIO_CHAIN_ID_HEX ? "GenLayer Studio Network" : chainId}`);
       setContractStatus(hasContract ? "Wallet connected. Contract adapter ready." : "Wallet connected. Session mode active until a GenLayer contract address is configured.");
     } catch (error) {
       setContractStatus(error instanceof Error ? error.message : "Wallet connection failed.");
@@ -673,6 +674,7 @@ export default function HomePage() {
             hasContract={hasContract}
             liveRound={liveRound}
             walletAddress={walletAddress}
+            walletLabel={walletLabel}
           />
           <SideLeaderboard />
         </aside>
@@ -1325,19 +1327,24 @@ function SystemPanel({
   contractStatus,
   hasContract,
   liveRound,
-  walletAddress
+  walletAddress,
+  walletLabel
 }: {
   activeGame: GameMode;
   contractStatus: string;
   hasContract: boolean;
   liveRound: LiveRound | null;
   walletAddress: string;
+  walletLabel: string;
 }) {
   const rows = [
+    { label: "Network", value: `${STUDIO_NETWORK_NAME} / chain 61999` },
     { label: "Active deck", value: `${activeGame.label} / ${activeGame.asset}` },
+    { label: "RPC", value: STUDIO_RPC_URL },
     { label: "Evidence source", value: liveRound?.source ?? "Syncing live source" },
     { label: "Sync status", value: liveRound?.updatedAt ? `Updated ${formatUpdateTime(liveRound.updatedAt)}` : "Waiting for first sync" },
-    { label: "Wallet session", value: walletAddress ? shortAddress(walletAddress) : "Disconnected" }
+    { label: "Wallet session", value: walletAddress ? shortAddress(walletAddress) : "Disconnected" },
+    { label: "Wallet network", value: walletLabel }
   ];
 
   return (
