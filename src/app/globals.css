@@ -382,7 +382,7 @@ button:disabled {
 .ticker-track {
   display: flex;
   gap: 12px;
-  width: max-content;
+  width: fit-content;
   padding: 12px;
   animation: tickerMove 32s linear infinite;
 }
@@ -961,6 +961,70 @@ button:disabled {
   gap: 12px;
 }
 
+.signal-chart-card {
+  grid-column: 1 / -1;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.signal-chart-head,
+.signal-chart-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.signal-chart-head strong {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--font-sora), Arial, sans-serif;
+}
+
+.signal-chart-head em,
+.signal-chart-foot span {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.signal-chart-head em.positive {
+  color: var(--positive);
+}
+
+.signal-chart-head em.negative {
+  color: var(--negative);
+}
+
+.signal-chart-frame {
+  position: relative;
+  height: 220px;
+  margin: 18px 0 14px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+}
+
+.signal-chart-grid,
+.signal-chart-svg {
+  position: absolute;
+  inset: 0;
+}
+
+.signal-chart-grid {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 14.285% 25%;
+  opacity: 0.6;
+}
+
+.signal-chart-svg {
+  width: 100%;
+  height: 100%;
+}
+
 .market-metrics div,
 .detail-tile,
 .challenge-card,
@@ -1163,6 +1227,28 @@ button:disabled {
 
 .round-panel h2 {
   font-size: 1.65rem;
+}
+
+.execution-badge {
+  display: inline-flex;
+  margin-top: 12px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.execution-badge.live {
+  color: var(--positive);
+  background: rgba(86, 240, 180, 0.08);
+}
+
+.execution-badge.session {
+  color: var(--warning);
+  background: rgba(255, 200, 106, 0.08);
 }
 
 .round-meta {
@@ -1412,6 +1498,14 @@ button:disabled {
   line-height: 1.5;
 }
 
+.system-status-banner em {
+  display: block;
+  margin-top: 10px;
+  color: var(--muted);
+  font-style: normal;
+  font-size: 12px;
+}
+
 .system-rows {
   display: grid;
   gap: 10px;
@@ -1488,7 +1582,7 @@ button:disabled {
     transform: translateX(0);
   }
   to {
-    transform: translateX(calc(-50% - 6px));
+    transform: translateX(-50%);
   }
 }
 

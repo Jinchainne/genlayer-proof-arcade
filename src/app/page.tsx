@@ -377,8 +377,9 @@ export default function HomePage() {
   const [walletBusy, setWalletBusy] = useState(false);
   const [tradeBusy, setTradeBusy] = useState(false);
   const [resolveBusy, setResolveBusy] = useState(false);
+  const hasContract = Boolean(CONTRACT_ADDRESS);
   const [contractStatus, setContractStatus] = useState(
-    CONTRACT_ADDRESS ? "Contract adapter ready." : "Set NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS to enable live onchain rounds."
+    hasContract ? "Contract adapter ready." : "Session mode active. Add NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS to switch to live onchain execution."
   );
 
   const activeGame = useMemo(
@@ -477,7 +478,7 @@ export default function HomePage() {
       setWalletAddress(address);
       setWalletBalance(formatToken(balanceHex));
       setWalletLabel(`${detectWalletName(provider)} / ${chainId === STUDIO_CHAIN_ID_HEX ? "Studionet" : chainId}`);
-      setContractStatus(CONTRACT_ADDRESS ? "Wallet connected. Contract adapter ready." : "Wallet connected. Add a GenLayer contract address to enter live rounds onchain.");
+      setContractStatus(hasContract ? "Wallet connected. Contract adapter ready." : "Wallet connected. Session mode active until a GenLayer contract address is configured.");
     } catch (error) {
       setContractStatus(error instanceof Error ? error.message : "Wallet connection failed.");
     } finally {
@@ -491,16 +492,32 @@ export default function HomePage() {
       setContractStatus("Connect a wallet before entering a live round.");
       return;
     }
-    if (!CONTRACT_ADDRESS) {
-      setContractStatus("Missing NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS for live contract writes.");
-      return;
-    }
 
     try {
       setTradeBusy(true);
+      const stamp = new Date().toLocaleTimeString("en-GB", { hour12: false });
+
+      if (!CONTRACT_ADDRESS) {
+        setPositions((current) => [
+          {
+            id: `#${String(roundId).padStart(4, "0")}`,
+            game: activeGame.label,
+            asset: activeGame.id === "race" || activeGame.id === "flip" ? "BTC/USD" : activeGame.asset,
+            pick: selectedCall,
+            size: selectedSize,
+            status: "Queued locally",
+            time: stamp
+          },
+          ...current
+        ]);
+        setRoundId((current) => current + 1);
+        setActiveTab("Positions");
+        setContractStatus("Session mode: round entered locally. Configure a GenLayer contract address for live writes.");
+        return;
+      }
+
       setContractStatus("Submitting enter_round transaction on GenLayer...");
       const txHash = await writeGenLayerContract("enter_round", [String(roundId), selectedCall, selectedSize]);
-      const stamp = new Date().toLocaleTimeString("en-GB", { hour12: false });
       setPositions((current) => [
         {
           id: `#${String(roundId).padStart(4, "0")}`,
@@ -529,13 +546,26 @@ export default function HomePage() {
       setContractStatus("Connect a wallet before resolving a round.");
       return;
     }
-    if (!CONTRACT_ADDRESS) {
-      setContractStatus("Missing NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS for resolve_round.");
-      return;
-    }
 
     try {
       setResolveBusy(true);
+      if (!CONTRACT_ADDRESS) {
+        setPositions((current) => {
+          if (!current.length) return current;
+          const [latest, ...rest] = current;
+          const resolvedStatus =
+            raceRound && latest.asset === "BTC/USD"
+              ? raceRound.price.last >= raceRound.price.toBeat
+                ? "Resolved locally: upside"
+                : "Resolved locally: downside"
+              : "Resolved locally";
+
+          return [{ ...latest, status: resolvedStatus }, ...rest];
+        });
+        setContractStatus("Session mode: latest round resolved locally.");
+        return;
+      }
+
       setContractStatus("Submitting resolve_round transaction on GenLayer...");
       const txHash = await writeGenLayerContract("resolve_round", [String(Math.max(1, roundId - 1))]);
       setContractStatus(`Resolve transaction accepted: ${shortHash(txHash)}`);
@@ -623,6 +653,7 @@ export default function HomePage() {
           <RoundPanel
             activeGame={activeGame}
             liveRound={liveRound}
+            hasContract={hasContract}
             selectedCall={selectedCall}
             selectedSize={selectedSize}
             tradeBusy={tradeBusy}
@@ -639,6 +670,7 @@ export default function HomePage() {
           <SystemPanel
             activeGame={activeGame}
             contractStatus={contractStatus}
+            hasContract={hasContract}
             liveRound={liveRound}
             walletAddress={walletAddress}
           />
@@ -961,6 +993,8 @@ function GameBoard({
                 <div><span>Open</span><strong>{formatPrice(raceRound.price.open)}</strong></div>
               </div>
             )}
+
+            {raceRound && <RaceSignalChart round={raceRound} />}
           </div>
         ) : (
           <div className="challenge-layout">
@@ -1075,9 +1109,63 @@ function GameBoard({
   );
 }
 
+function RaceSignalChart({ round }: { round: RaceRound }) {
+  const values = round.candles.map((candle) => candle.close).reverse();
+  const highs = round.candles.map((candle) => candle.high);
+  const lows = round.candles.map((candle) => candle.low);
+  const max = Math.max(...highs);
+  const min = Math.min(...lows);
+  const points = values.map((value, index) => {
+    const x = (index / Math.max(values.length - 1, 1)) * 100;
+    const y = max === min ? 50 : 100 - ((value - min) / (max - min)) * 100;
+    return `${x},${y}`;
+  });
+  const trendUp = values[values.length - 1] >= values[0];
+
+  return (
+    <div className="signal-chart-card">
+      <div className="signal-chart-head">
+        <div>
+          <span className="section-kicker">Signal chart</span>
+          <strong>Micro round momentum</strong>
+        </div>
+        <em className={trendUp ? "positive" : "negative"}>
+          {trendUp ? "Uptrend bias" : "Downtrend bias"}
+        </em>
+      </div>
+      <div className="signal-chart-frame">
+        <div className="signal-chart-grid" aria-hidden="true" />
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="signal-chart-svg" role="img" aria-label="BTC micro round chart">
+          <defs>
+            <linearGradient id="signalGradient" x1="0%" x2="100%" y1="0%" y2="0%">
+              <stop offset="0%" stopColor="#ff5f6d" />
+              <stop offset="45%" stopColor="#ffb56b" />
+              <stop offset="100%" stopColor="#56f0b4" />
+            </linearGradient>
+          </defs>
+          <polyline
+            fill="none"
+            stroke="url(#signalGradient)"
+            strokeWidth="2.4"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            points={points.join(" ")}
+          />
+        </svg>
+      </div>
+      <div className="signal-chart-foot">
+        <span>Low {formatPrice(min)}</span>
+        <span>High {formatPrice(max)}</span>
+        <span>Last {formatPrice(round.price.last)}</span>
+      </div>
+    </div>
+  );
+}
+
 function RoundPanel({
   activeGame,
   liveRound,
+  hasContract,
   selectedCall,
   selectedSize,
   tradeBusy,
@@ -1092,6 +1180,7 @@ function RoundPanel({
 }: {
   activeGame: GameMode;
   liveRound: LiveRound | null;
+  hasContract: boolean;
   selectedCall: string;
   selectedSize: number;
   tradeBusy: boolean;
@@ -1117,6 +1206,9 @@ function RoundPanel({
         <div>
           <h2>{assetTitle}</h2>
           <span className="asset-badge">{activeGame.asset}</span>
+          <div className={hasContract ? "execution-badge live" : "execution-badge session"}>
+            {hasContract ? "Onchain mode" : "Session mode"}
+          </div>
         </div>
         <div className="round-meta">
           <span>next round</span>
@@ -1164,10 +1256,10 @@ function RoundPanel({
       </div>
 
       <button type="button" className="enter-button" disabled={!selectedCall || tradeBusy} onClick={onEnterRound}>
-        {tradeBusy ? "Submitting onchain..." : "Enter Round"}
+        {tradeBusy ? (hasContract ? "Submitting onchain..." : "Queueing locally...") : hasContract ? "Enter Round" : "Enter Session Round"}
       </button>
       <button type="button" className="secondary-button" disabled={resolveBusy} onClick={onResolveRound}>
-        {resolveBusy ? "Resolving..." : "Resolve Round"}
+        {resolveBusy ? (hasContract ? "Resolving..." : "Resolving locally...") : hasContract ? "Resolve Round" : "Resolve Session Round"}
       </button>
       <p className="panel-note">{contractStatus}</p>
     </motion.article>
@@ -1231,11 +1323,13 @@ function SideLeaderboard() {
 function SystemPanel({
   activeGame,
   contractStatus,
+  hasContract,
   liveRound,
   walletAddress
 }: {
   activeGame: GameMode;
   contractStatus: string;
+  hasContract: boolean;
   liveRound: LiveRound | null;
   walletAddress: string;
 }) {
@@ -1257,6 +1351,7 @@ function SystemPanel({
       <div className="system-status-banner">
         <span>Execution status</span>
         <strong>{contractStatus}</strong>
+        <em>{hasContract ? "Live contract path enabled" : "Local execution path enabled"}</em>
       </div>
       <div className="system-rows">
         {rows.map((row) => (
