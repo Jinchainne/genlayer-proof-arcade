@@ -1,117 +1,122 @@
-# GenLayer Proof Arcade
+# 🎮 GenLayer Proof Arcade
 
-GenLayer Proof Arcade is a live prediction interface built for the GenLayer Builder track. It combines a market-style trading surface, real external data feeds, wallet-aware round entry, and a deployed GenLayer Intelligent Contract on Studionet for round creation and resolution.
+An AI-powered prediction arcade built on GenLayer Intelligent Contracts.
 
-## What this project is
+> An experimental AI-native prediction market demonstrating how GenLayer Intelligent Contracts can resolve subjective real-world outcomes using validator consensus and web evidence.
 
-Proof Arcade is designed as a GenLayer-native prediction floor for fast judgment games:
+## 🌐 Live Demo
 
-- `Race` uses live BTC market data to power lane-based round outcomes
-- `News Pulse` uses current crypto headlines as public evidence
-- `Build` uses live GenLayer GitHub activity as builder challenge input
-- `Judge` uses public issue threads as dispute evidence
-- `Doc Hunt`, `Flip`, `Roll`, and `Spin` extend the arcade loop with additional prediction surfaces
+https://genlayer-proof-arcade.vercel.app/
 
-The product direction is intentionally positioned between:
+## 📦 Repository
 
-- a prediction market browser
-- an evidence-aware resolver dashboard
-- a GenLayer contract-backed arcade flow
+https://github.com/Jinchainne/genlayer-proof-arcade
 
-## Live infrastructure
+---
 
-### GenLayer network
+## Overview
 
-- Network: `GenLayer Studio Network`
-- Chain ID: `61999`
-- RPC: `https://studio.genlayer.com/api`
+GenLayer Proof Arcade is an experimental prediction platform that combines prediction markets, AI-assisted judgement, validator consensus, Intelligent Contracts, and real-world evidence verification.
 
-### Deployed contract
+Instead of relying on a single centralized oracle, outcomes are resolved through GenLayer's AI-powered validator consensus. Validators independently evaluate external evidence and reach agreement on the final result.
 
-- Contract: `0x5ff368E60E4e49839E6e6B63f0208aFB408d43ae`
-- Source: [contracts/proof_arcade_mvp.py](contracts/proof_arcade_mvp.py)
+This project demonstrates how GenLayer can be used to build AI-native blockchain applications that reason about real-world events.
 
-Current contract interface:
+---
 
-- `create_round(question, choices, resolution_rules, start_time, lock_time, end_time)`
-- `enter_round(round_id, choice, points)`
-- `resolve_round(round_id)`
-- `claim_reward(round_id)`
+## Features
 
-## Product features
+### 🎮 Prediction Rounds
 
-- Dark trading-grade UI tailored for GenLayer demos
-- Wallet connection with MetaMask / Rabby / OKX detection
-- Auto-sign toggle and Lite / Pro display modes
-- Category rail and market browser inspired by modern prediction exchanges
-- Live data-backed center board and related-market navigation
-- Position tracking panel for round submissions
-- Evidence and resolution rules panel for GenLayer-oriented judging flows
+Users can create and participate in prediction rounds based on real-world events, such as:
 
-## Live data sources
+- BTC price movement
+- Sports results
+- AI benchmark competitions
+- Community events
+- Crypto ecosystem milestones
 
-The app currently uses real public data sources through API routes:
+### 🤖 AI-Assisted Resolution
 
-- Coinbase Exchange market data
-- CoinDesk RSS
-- Cointelegraph RSS
-- GitHub repository and issue data from `genlayerlabs`
-- Public trade-policy pages for document-style challenge context
+Prediction outcomes are resolved through AI-assisted judgement using GenLayer validators.
 
-## Project structure
+Possible outcomes include:
+
+- TRUE
+- FALSE
+- UNDETERMINED
+
+### 📡 Evidence-Based Verification
+
+The platform can use public evidence sources such as:
+
+- News articles
+- Public APIs
+- Market data
+- GitHub activity
+- Official announcements
+- Community evidence
+
+### 👛 Wallet Integration
+
+Users can connect their wallet, join prediction rounds, track positions, and claim rewards.
+
+### 📊 Market Dashboard
+
+The dashboard displays active markets, round status, resolution progress, participation data, and market history.
+
+---
+
+## Tech Stack
+
+### Frontend
+
+- Next.js
+- TypeScript
+- TailwindCSS
+- shadcn/ui
+
+### Blockchain
+
+- GenLayer Studionet
+- Intelligent Contracts
+- GenLayerJS SDK
+
+### Infrastructure
+
+- Vercel
+- GitHub
+
+### Data Sources
+
+- Public APIs
+- Crypto market feeds
+- RSS feeds
+- Web evidence sources
+
+---
+
+## Architecture
 
 ```text
-src/app/page.tsx              Main Proof Arcade interface
-src/app/globals.css           Global visual system and layout styling
-src/app/api/live-round/route.ts
-contracts/proof_arcade_mvp.py GenLayer Intelligent Contract MVP
-.env.example                  Frontend environment template
-```
-
-## Local development
-
-```bash
-npm install
-npm run dev
-```
-
-## Production checks
-
-```bash
-npm run typecheck
-npm run build
-```
-
-## Environment
-
-Create a local environment file from `.env.example`.
-
-```env
-NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS=0x5ff368E60E4e49839E6e6B63f0208aFB408d43ae
-NEXT_PUBLIC_GENLAYER_NETWORK=studionet
-```
-
-## Contract notes
-
-The contract is deployed on Studionet and uses GenLayer-compatible storage types. The frontend is set up to:
-
-- create rounds onchain
-- enter rounds with a selected choice and point size
-- submit round resolution transactions
-
-This repository keeps the contract intentionally compact so the demo stays easy to inspect during Builder review.
-
-## Why this fits GenLayer
-
-GenLayer is strongest when a product needs:
-
-- structured resolution rules
-- public web evidence
-- AI-assisted judgment
-- contract-visible outcome settlement
-
-Proof Arcade is built around exactly that surface area: market questions, evidence streams, wallet-triggered participation, and an Intelligent Contract that can evolve from MVP pool resolution toward richer GenLayer-native adjudication.
-
-## Status
-
-This is an active Builder submission repo, not a static mockup. The UI, data ingestion, wallet flow, and Studionet contract path are all part of the working demo surface.
+User
+ │
+ ▼
+Frontend Application
+ │
+ ▼
+GenLayer Intelligent Contract
+ │
+ ▼
+AI Validators
+ │
+ ├── GPT-based Validators
+ ├── Llama-based Validators
+ ├── Mistral-based Validators
+ └── Other LLM Validators
+ │
+ ▼
+Consensus Result
+ │
+ ▼
+Prediction Resolution
