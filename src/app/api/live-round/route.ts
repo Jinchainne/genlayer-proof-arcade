@@ -38,32 +38,34 @@ function stripHtml(value: string) {
 
 async function loadRaceRound() {
   const [ticker, depth, klines] = await Promise.all([
-    fetchJson<any>("https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT"),
-    fetchJson<any>("https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=8"),
-    fetchJson<any[]>("https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=12")
+    fetchJson<any>("https://api.exchange.coinbase.com/products/BTC-USD/stats"),
+    fetchJson<any>("https://api.exchange.coinbase.com/products/BTC-USD/book?level=2"),
+    fetchJson<any[]>("https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60")
   ]);
 
-  const lastPrice = Number(ticker.lastPrice);
-  const openPrice = Number(ticker.openPrice);
-  const bid = Number(ticker.bidPrice);
-  const ask = Number(ticker.askPrice);
-  const changePercent = Number(ticker.priceChangePercent);
-  const toBeat = Number(klines[klines.length - 2]?.[4] ?? ticker.prevClosePrice);
-  const candles = klines.map((candle) => ({
-    open: Number(candle[1]),
+  const bids = Array.isArray(depth.bids) ? depth.bids.slice(0, 8) : [];
+  const asks = Array.isArray(depth.asks) ? depth.asks.slice(0, 8) : [];
+  const lastPrice = Number(ticker.last);
+  const openPrice = Number(ticker.open);
+  const bid = Number(bids[0]?.[0] ?? lastPrice);
+  const ask = Number(asks[0]?.[0] ?? lastPrice);
+  const changePercent = openPrice ? ((lastPrice - openPrice) / openPrice) * 100 : 0;
+  const toBeat = Number(klines[1]?.[4] ?? openPrice);
+  const candles = klines.slice(0, 12).map((candle) => ({
+    open: Number(candle[3]),
     high: Number(candle[2]),
-    low: Number(candle[3]),
+    low: Number(candle[1]),
     close: Number(candle[4]),
     volume: Number(candle[5])
   }));
-  const bidDepth = (depth.bids ?? []).reduce((sum: number, [_, qty]: [string, string]) => sum + Number(qty), 0);
-  const askDepth = (depth.asks ?? []).reduce((sum: number, [_, qty]: [string, string]) => sum + Number(qty), 0);
+  const bidDepth = bids.reduce((sum: number, [_, qty]: [string, string]) => sum + Number(qty), 0);
+  const askDepth = asks.reduce((sum: number, [_, qty]: [string, string]) => sum + Number(qty), 0);
   const poolBase = bidDepth + askDepth || 1;
 
   return {
     type: "race",
     updatedAt: new Date().toISOString(),
-    source: "Binance",
+    source: "Coinbase Exchange",
     asset: "BTC/USD",
     status: "LOCKED CURRENT ROUND",
     timer: {
@@ -77,7 +79,7 @@ async function loadRaceRound() {
       open: openPrice,
       bid,
       ask,
-      volume: Number(ticker.quoteVolume)
+      volume: Number(ticker.volume) * lastPrice
     },
     candles,
     depth: {
@@ -92,6 +94,34 @@ async function loadRaceRound() {
       DUMP: Math.max(4, Math.round((askDepth / poolBase) * 19)),
       CRASH: Math.max(2, Math.round((askDepth / poolBase) * 10))
     }
+  };
+}
+
+async function loadDocHuntRound() {
+  const html = await fetchText("https://ustr.gov/about-us/policy-offices/press-office/press-releases");
+  const matches = Array.from(
+    html.matchAll(/<li[^>]*>\s*(\d{4}-\d{2}-\d{2})\s*<br><a href="([^"]+)">\s*([^<]+?)\s*<\/a>/gi)
+  )
+    .slice(0, 4)
+    .map(([, date, href, title]) => ({
+      date,
+      href: href.startsWith("http") ? href : `https://ustr.gov${href}`,
+      title: compactText(decodeXml(title))
+    }));
+
+  const lead = matches[0];
+  const challenge = lead
+    ? `Review the latest USTR trade notice: "${lead.title}". Which issue category best matches this filing or action notice?`
+    : "Review the latest public trade filing and classify the document issue.";
+
+  return {
+    type: "generic",
+    updatedAt: new Date().toISOString(),
+    source: "USTR press releases",
+    challenge,
+    evidence: matches.length
+      ? matches.map((item) => `${item.date} - ${item.title}`).join(" | ")
+      : "Official USTR notices and public trade policy releases act as evidence."
   };
 }
 
@@ -192,6 +222,50 @@ async function loadJudgeRound() {
   };
 }
 
+async function loadRollRound() {
+  const [ticker, depth] = await Promise.all([
+    fetchJson<any>("https://api.exchange.coinbase.com/products/ETH-USD/stats"),
+    fetchJson<any>("https://api.exchange.coinbase.com/products/ETH-USD/book?level=2")
+  ]);
+
+  const bids = Array.isArray(depth.bids) ? depth.bids.slice(0, 6) : [];
+  const asks = Array.isArray(depth.asks) ? depth.asks.slice(0, 6) : [];
+  const lastPrice = Number(ticker.last);
+  const openPrice = Number(ticker.open);
+  const changePercent = openPrice ? ((lastPrice - openPrice) / openPrice) * 100 : 0;
+  const bidDepth = bids.reduce((sum: number, [_, qty]: [string, string]) => sum + Number(qty), 0);
+  const askDepth = asks.reduce((sum: number, [_, qty]: [string, string]) => sum + Number(qty), 0);
+
+  return {
+    type: "generic",
+    updatedAt: new Date().toISOString(),
+    source: "Coinbase Exchange / ETH-USD",
+    challenge: `ETH is ${changePercent >= 0 ? "up" : "down"} ${Math.abs(changePercent).toFixed(2)}% from open at ${lastPrice.toFixed(2)} USD. Which risk lane best matches the current volatility band?`,
+    evidence: `Open ${openPrice.toFixed(2)} | Last ${lastPrice.toFixed(2)} | Top-of-book depth ${bidDepth.toFixed(2)} bid vs ${askDepth.toFixed(2)} ask.`
+  };
+}
+
+async function loadSpinRound() {
+  const repos = await fetchJson<any[]>(
+    "https://api.github.com/orgs/genlayerlabs/repos?per_page=8&sort=updated",
+    { headers: { accept: "application/vnd.github+json" } }
+  );
+  const fresh = repos[0];
+  const backups = repos.slice(1, 4).map((repo) => repo.name).join(", ");
+
+  return {
+    type: "generic",
+    updatedAt: new Date().toISOString(),
+    source: "GitHub / genlayerlabs",
+    challenge: fresh
+      ? `Daily spin challenge: will ${fresh.name} remain the freshest public GenLayer repo update through the current round window?`
+      : "Daily spin challenge is waiting for a public repo freshness signal.",
+    evidence: fresh
+      ? `Latest repo: ${fresh.name} | Stars ${fresh.stargazers_count} | Forks ${fresh.forks_count} | Other active repos: ${backups}.`
+      : "Public GitHub repo freshness and activity decide the daily spin."
+  };
+}
+
 export async function GET(request: NextRequest) {
   const game = request.nextUrl.searchParams.get("game") ?? "race";
 
@@ -205,8 +279,17 @@ export async function GET(request: NextRequest) {
     if (game === "build") {
       return NextResponse.json(await loadBuildRound());
     }
+    if (game === "doc-hunt") {
+      return NextResponse.json(await loadDocHuntRound());
+    }
     if (game === "judge") {
       return NextResponse.json(await loadJudgeRound());
+    }
+    if (game === "roll") {
+      return NextResponse.json(await loadRollRound());
+    }
+    if (game === "spin") {
+      return NextResponse.json(await loadSpinRound());
     }
 
     return NextResponse.json({

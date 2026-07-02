@@ -192,7 +192,7 @@ const baseGames: GameMode[] = [
     label: "Race",
     asset: "BTC",
     icon: Flame,
-    description: "Live BTC round powered by Binance market data and live order flow snapshots.",
+    description: "Live BTC round powered by Coinbase Exchange market data and order-flow snapshots.",
     headline: "Race board for rapid conviction",
     challenge: "Predict which lane the BTC close settles into when the round resolves.",
     choices: [
@@ -203,7 +203,7 @@ const baseGames: GameMode[] = [
       { label: "DUMP", tone: "negative" },
       { label: "CRASH", tone: "negative" }
     ],
-    evidenceHint: "Live Binance last price, prior minute close, and order-book pressure drive the lane judgment.",
+    evidenceHint: "Live Coinbase last price, prior minute close, and order-book pressure drive the lane judgment.",
     liveEnabled: true
   },
   {
@@ -228,7 +228,7 @@ const baseGames: GameMode[] = [
     label: "Doc Hunt",
     asset: "TRADE",
     icon: FileSearch,
-    description: "User-submitted document rounds will route into GenLayer for adjudication once the round contract is deployed.",
+    description: "Live trade-policy filings and public notices feed this discrepancy-detection board.",
     headline: "Document mismatch sprint",
     challenge: "Sales Contract quantity: 5,000 cartons. Packing List quantity: 4,800 cartons. What is the issue?",
     choices: [
@@ -238,8 +238,8 @@ const baseGames: GameMode[] = [
       { label: "Fraud risk", tone: "negative" },
       { label: "Missing document", tone: "warning" }
     ],
-    evidenceHint: "This mode is contract-ready but still waiting for a dedicated live public document source.",
-    liveEnabled: false
+    evidenceHint: "Official USTR trade-policy notices and public releases are used as the document evidence stream.",
+    liveEnabled: true
   },
   {
     id: "news-pulse",
@@ -294,7 +294,7 @@ const baseGames: GameMode[] = [
     label: "Roll",
     asset: "POINTS",
     icon: Gift,
-    description: "Live points ladder will unlock after the round contract adds score accounting.",
+    description: "Live ETH volatility and top-of-book pressure drive the points ladder.",
     headline: "Points ladder",
     challenge: "Choose the lane most likely to hit the daily target band before the roll timer closes.",
     choices: [
@@ -302,15 +302,15 @@ const baseGames: GameMode[] = [
       { label: "Mid lane", tone: "warning" },
       { label: "High risk lane", tone: "negative" }
     ],
-    evidenceHint: "Waiting on contract-side points accounting.",
-    liveEnabled: false
+    evidenceHint: "Live Coinbase ETH-USD open, last price, and depth provide the daily risk-lane evidence.",
+    liveEnabled: true
   },
   {
     id: "spin",
     label: "Spin",
     asset: "DAILY",
     icon: Sparkles,
-    description: "Daily challenge mode will become live once daily rotating rounds are created onchain.",
+    description: "Daily rotating challenge keyed off the freshest public GenLayer repository activity.",
     headline: "Daily spin room",
     challenge: "A rotating prompt drops every day. Pick the best outcome before the spin resolves.",
     choices: [
@@ -319,8 +319,8 @@ const baseGames: GameMode[] = [
       { label: "Try again", tone: "warning" },
       { label: "Miss", tone: "negative" }
     ],
-    evidenceHint: "Daily rotation is ready for a future onchain scheduler.",
-    liveEnabled: false
+    evidenceHint: "Public GitHub freshness and repo activity anchor the daily spin question.",
+    liveEnabled: true
   }
 ];
 
@@ -1107,6 +1107,7 @@ function extractEvidence(activeGame: GameMode, liveRound: LiveRound | null) {
   if (liveRound?.type === "news-pulse") return liveRound.evidence;
   if (liveRound?.type === "judge") return liveRound.evidence;
   if (liveRound?.type === "build") return "Live GitHub repository metrics from the genlayerlabs organization.";
+  if (liveRound?.type === "generic") return liveRound.evidence;
   return activeGame.evidenceHint;
 }
 
@@ -1144,6 +1145,10 @@ function renderDetailTiles(activeGame: GameMode, liveRound: LiveRound | null) {
     <div key="challenge" className="detail-tile">
       <span className="section-kicker">Challenge</span>
       <strong>{extractChallenge(activeGame, liveRound)}</strong>
+    </div>,
+    <div key="evidence" className="detail-tile">
+      <span className="section-kicker">Evidence</span>
+      <p>{extractEvidence(activeGame, liveRound)}</p>
     </div>,
     <div key="choices" className="detail-tile">
       <span className="section-kicker">Choices</span>
