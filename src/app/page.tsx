@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   createPublicClient,
   createWalletClient,
@@ -339,6 +340,12 @@ const leaderboardPreview = [
   { rank: "#3", wallet: "You", points: "200 pts" }
 ];
 
+type OverviewItem = {
+  label: string;
+  value: string;
+  tone: "positive" | "warning" | "neutral";
+};
+
 const mvpContractInterface = {
   create_round: "create_round(question, choices, resolution_rules, start_time, lock_time, end_time)",
   enter_round: "enter_round(round_id, choice, points)",
@@ -379,6 +386,40 @@ export default function HomePage() {
   const buildRound = liveRound?.type === "build" ? liveRound : null;
   const judgeRound = liveRound?.type === "judge" ? liveRound : null;
   const callPool = raceRound?.callPool;
+  const overviewItems = useMemo<OverviewItem[]>(() => {
+    const primaryMetric = raceRound
+      ? formatPrice(raceRound.price.last)
+      : buildRound
+        ? `${buildRound.candidates.length} live repos`
+        : newsRound
+          ? `${newsRound.headlines.length} headlines`
+          : judgeRound
+            ? `${judgeRound.issues.length} live disputes`
+            : "Live feed";
+
+    return [
+      {
+        label: "Network pulse",
+        value: CONTRACT_ADDRESS ? "Contract ready" : "Wallet-signed flow",
+        tone: "positive"
+      },
+      {
+        label: "Active game",
+        value: activeGame.label,
+        tone: "neutral"
+      },
+      {
+        label: "Current signal",
+        value: primaryMetric,
+        tone: "warning"
+      },
+      {
+        label: "Wallet",
+        value: walletAddress ? shortAddress(walletAddress) : "Not connected",
+        tone: walletAddress ? "positive" : "neutral"
+      }
+    ];
+  }, [activeGame.label, buildRound, judgeRound, newsRound, raceRound, walletAddress]);
 
   useEffect(() => {
     let cancelled = false;
@@ -529,6 +570,14 @@ export default function HomePage() {
 
   return (
     <main className="arcade-shell">
+      <div className="arcade-backdrop" aria-hidden="true">
+        <div className="aurora aurora-one" />
+        <div className="aurora aurora-two" />
+        <div className="grid-halo" />
+        <div className="scanline scanline-one" />
+        <div className="scanline scanline-two" />
+      </div>
+
       <TopNav
         autoSign={autoSign}
         mode={mode}
@@ -541,6 +590,8 @@ export default function HomePage() {
         onToggleAutoSign={() => setAutoSign((current) => !current)}
         onMode={setMode}
       />
+
+      <OverviewStrip items={overviewItems} />
 
       <section className="arcade-layout">
         <SidebarMenu activeGame={selectedGame} onSelect={setSelectedGame} />
@@ -581,6 +632,29 @@ export default function HomePage() {
   );
 }
 
+function OverviewStrip({
+  items
+}: {
+  items: OverviewItem[];
+}) {
+  return (
+    <section className="overview-strip">
+      {items.map((item, index) => (
+        <motion.article
+          key={item.label}
+          className={`overview-card ${item.tone}`}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.38, delay: index * 0.06 }}
+        >
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+        </motion.article>
+      ))}
+    </section>
+  );
+}
+
 function TopNav({
   autoSign,
   mode,
@@ -605,14 +679,19 @@ function TopNav({
   onMode: (value: Mode) => void;
 }) {
   return (
-    <header className="arcade-topbar">
+    <motion.header
+      className="arcade-topbar"
+      initial={{ opacity: 0, y: -18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45 }}
+    >
       <div className="arcade-brand">
         <div className="arcade-brand-mark">
           <Zap size={16} />
         </div>
         <div>
           <strong>Proof Arcade</strong>
-          <span>GenLayer fast judgment floor</span>
+          <span>GenLayer future signal arena</span>
         </div>
       </div>
 
@@ -669,7 +748,7 @@ function TopNav({
           </button>
         </div>
       </div>
-    </header>
+    </motion.header>
   );
 }
 
@@ -681,17 +760,28 @@ function SidebarMenu({
   onSelect: (value: GameId) => void;
 }) {
   return (
-    <aside className="game-sidebar">
+    <motion.aside
+      className="game-sidebar"
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.45, delay: 0.08 }}
+    >
       <div className="section-kicker">Games</div>
+      <div className="sidebar-copy">
+        <strong>Signal decks</strong>
+        <span>Live feeds, AI judgment, and fast-entry rounds.</span>
+      </div>
       <div className="game-menu">
         {baseGames.map((game) => {
           const Icon = game.icon;
           return (
-            <button
+            <motion.button
               key={game.id}
               type="button"
               className={activeGame === game.id ? "game-menu-item active" : "game-menu-item"}
               onClick={() => onSelect(game.id)}
+              whileHover={{ x: 6, scale: 1.01 }}
+              whileTap={{ scale: 0.985 }}
             >
               <div className="game-menu-left">
                 <div className="game-menu-icon">
@@ -703,11 +793,11 @@ function SidebarMenu({
                 </div>
               </div>
               <em>{game.asset}</em>
-            </button>
+            </motion.button>
           );
         })}
       </div>
-    </aside>
+    </motion.aside>
   );
 }
 
@@ -727,10 +817,18 @@ function GameBoard({
   mode: Mode;
 }) {
   const isRace = activeGame.id === "race" || activeGame.id === "flip";
+  const liveHeadline = extractHeadline(activeGame, liveRound);
+  const liveChallenge = extractChallenge(activeGame, liveRound);
+  const liveEvidence = extractEvidence(activeGame, liveRound);
 
   return (
     <section className="game-stack">
-      <article className="game-card race-card">
+      <motion.article
+        className="game-card race-card"
+        initial={{ opacity: 0, y: 22 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, delay: 0.12 }}
+      >
         <div className="card-head">
           <div>
             <div className="title-line">
@@ -742,6 +840,28 @@ function GameBoard({
           <div className="board-status">
             <span>{isRace && liveRound?.type === "race" ? liveRound.status : "Live round"}</span>
             <strong>{isRace && liveRound?.type === "race" ? `Finish in ${liveRound.timer.lockSeconds}s` : "Public feed"}</strong>
+          </div>
+        </div>
+
+        <div className="hero-grid">
+          <div className="hero-story">
+            <span className="section-kicker">Live challenge</span>
+            <h2>{liveHeadline}</h2>
+            <p>{liveChallenge}</p>
+            <div className="hero-tag-row">
+              <span className="hero-tag">Consensus-ready</span>
+              <span className="hero-tag">Global public evidence</span>
+              <span className="hero-tag">{activeGame.liveEnabled ? "Live source" : "Queued source"}</span>
+            </div>
+          </div>
+
+          <div className="hero-side">
+            <div className="hero-orb" />
+            <div className="hero-side-copy">
+              <span className="section-kicker">Pulse</span>
+              <strong>{liveRound ? liveRound.source : "Syncing source"}</strong>
+              <p>{liveEvidence}</p>
+            </div>
           </div>
         </div>
 
@@ -773,13 +893,18 @@ function GameBoard({
 
             <div className="race-board">
               {raceZones.map((zone) => (
-                <div key={zone.label} className={`race-zone ${zone.accent}`}>
+                <motion.div
+                  key={zone.label}
+                  className={`race-zone ${zone.accent}`}
+                  whileHover={{ y: -6, scale: 1.015 }}
+                  transition={{ duration: 0.2 }}
+                >
                   <div className="race-marker">{zone.marker}</div>
                   <div className="race-label">{zone.label}</div>
                   <div className="lane-pool">
                     Pool {raceRound ? `${raceRound.callPool[zone.label] ?? 0}%` : "--"}
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
 
@@ -798,33 +923,56 @@ function GameBoard({
           <div className="challenge-layout">
             <div className="challenge-card">
               <span className="section-kicker">Live challenge</span>
-              <strong>{extractHeadline(activeGame, liveRound)}</strong>
-              <p>{extractChallenge(activeGame, liveRound)}</p>
+              <strong>{liveHeadline}</strong>
+              <p>{liveChallenge}</p>
             </div>
 
-            <div className="choice-preview">
-              {deriveChoices(activeGame, liveRound).map((choice) => (
-                <div key={choice.label} className={`choice-preview-item ${choice.tone}`}>
-                  <span>{choice.label}</span>
-                </div>
-              ))}
-            </div>
+            <AnimatePresence mode="popLayout">
+              <motion.div
+                key={activeGame.id}
+                className="choice-preview"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.22 }}
+              >
+                {deriveChoices(activeGame, liveRound).map((choice) => (
+                  <motion.div
+                    key={choice.label}
+                    className={`choice-preview-item ${choice.tone}`}
+                    whileHover={{ y: -4, scale: 1.01 }}
+                  >
+                    <span>{choice.label}</span>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </AnimatePresence>
           </div>
         )}
-      </article>
+      </motion.article>
 
       <section className="lower-grid">
-        <article className="game-card details-card">
+        <motion.article
+          className="game-card details-card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.18 }}
+        >
           <div className="section-kicker">Evidence stream</div>
-          <h2>{extractHeadline(activeGame, liveRound)}</h2>
-          <p>{extractEvidence(activeGame, liveRound)}</p>
+          <h2>{liveHeadline}</h2>
+          <p>{liveEvidence}</p>
           <div className="detail-panels">
             {renderDetailTiles(activeGame, liveRound)}
           </div>
-        </article>
+        </motion.article>
 
         {mode === "Pro" && (
-          <article className="game-card evidence-card">
+          <motion.article
+            className="game-card evidence-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.45, delay: 0.24 }}
+          >
             <div className="section-kicker">Evidence / Resolution Rules</div>
             <div className="evidence-grid">
               <div>
@@ -845,10 +993,15 @@ function GameBoard({
               </div>
             </div>
             <p>{activeGame.evidenceHint}</p>
-          </article>
+          </motion.article>
         )}
 
-        <article className="game-card leaderboard-card">
+        <motion.article
+          className="game-card leaderboard-card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.3 }}
+        >
           <div className="section-kicker">Leaderboard preview</div>
           <div className="leaderboard-list">
             {leaderboardPreview.map((entry) => (
@@ -859,16 +1012,21 @@ function GameBoard({
               </div>
             ))}
           </div>
-        </article>
+        </motion.article>
 
-        <article className="game-card contract-card">
+        <motion.article
+          className="game-card contract-card"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.36 }}
+        >
           <div className="section-kicker">MVP contract interface</div>
           <div className="contract-lines">
             {Object.values(mvpContractInterface).map((line) => (
               <code key={line}>{line}</code>
             ))}
           </div>
-        </article>
+        </motion.article>
       </section>
     </section>
   );
@@ -906,7 +1064,12 @@ function RoundPanel({
   const assetTitle = activeGame.id === "race" || activeGame.id === "flip" ? "BTC/USD" : `${activeGame.label} / ${activeGame.asset}`;
 
   return (
-    <article className="game-card round-panel">
+    <motion.article
+      className="game-card round-panel"
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.45, delay: 0.12 }}
+    >
       <div className="panel-topline">
         <div>
           <h2>{assetTitle}</h2>
@@ -939,18 +1102,20 @@ function RoundPanel({
         <span className="section-kicker">Pick your call</span>
         <div className="call-list">
           {deriveChoices(activeGame, liveRound).map((choice) => (
-            <button
+            <motion.button
               key={choice.label}
               type="button"
               className={selectedCall === choice.label ? `call-button ${choice.tone} active` : `call-button ${choice.tone}`}
               onClick={() => onSelectCall(choice.label)}
+              whileHover={{ x: 4 }}
+              whileTap={{ scale: 0.985 }}
             >
               <span>
                 {choice.tone === "positive" ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
                 {choice.label}
               </span>
               <em>{callPool?.[choice.label] ? `${callPool[choice.label]}% pool` : "live"}</em>
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
@@ -962,13 +1127,18 @@ function RoundPanel({
         {resolveBusy ? "Resolving..." : "Resolve Round"}
       </button>
       <p className="panel-note">{contractStatus}</p>
-    </article>
+    </motion.article>
   );
 }
 
 function BalanceCard({ balance, walletAddress }: { balance: string; walletAddress: string }) {
   return (
-    <article className="game-card balance-card">
+    <motion.article
+      className="game-card balance-card"
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.45, delay: 0.18 }}
+    >
       <div className="balance-top">
         <div>
           <span>Cash</span>
@@ -991,13 +1161,18 @@ function BalanceCard({ balance, walletAddress }: { balance: string; walletAddres
         <div><span>Unrealized PNL</span><strong>$0.00</strong></div>
         <div><span>Margin Used</span><strong>$0.00</strong></div>
       </div>
-    </article>
+    </motion.article>
   );
 }
 
 function SideLeaderboard() {
   return (
-    <article className="game-card side-leaderboard">
+    <motion.article
+      className="game-card side-leaderboard"
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.45, delay: 0.24 }}
+    >
       <div className="section-kicker">Points board</div>
       {leaderboardPreview.map((entry) => (
         <div key={entry.rank} className="leaderboard-row compact">
@@ -1006,7 +1181,7 @@ function SideLeaderboard() {
           <em>{entry.points}</em>
         </div>
       ))}
-    </article>
+    </motion.article>
   );
 }
 
@@ -1022,7 +1197,12 @@ function BottomPanel({
   const showPositions = activeTab === "Positions";
 
   return (
-    <article className="game-card bottom-panel">
+    <motion.article
+      className="game-card bottom-panel"
+      initial={{ opacity: 0, y: 26 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, delay: 0.26 }}
+    >
       <div className="tab-row">
         {tabs.map((tab) => (
           <button
@@ -1066,7 +1246,7 @@ function BottomPanel({
           <p>{showPositions ? "A position appears here after a successful onchain enter_round transaction." : "This tab is ready for future GenLayer-connected indexing."}</p>
         </div>
       )}
-    </article>
+    </motion.article>
   );
 }
 
