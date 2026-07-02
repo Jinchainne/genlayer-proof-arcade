@@ -222,6 +222,16 @@ button:disabled {
   font-family: Consolas, "Courier New", monospace;
 }
 
+.wallet-status-chip {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+}
+
 .mode-switch {
   display: inline-flex;
   padding: 4px;
@@ -310,6 +320,14 @@ button:disabled {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
   color: #f5d1a8;
+}
+
+.game-menu-left small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 10px;
 }
 
 .game-menu-item span,
@@ -425,6 +443,41 @@ button:disabled {
   box-shadow: 0 0 18px rgba(255, 107, 44, 0.48);
 }
 
+.source-strip,
+.market-metrics {
+  display: grid;
+  gap: 10px;
+}
+
+.source-strip {
+  margin-top: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.source-strip > div,
+.market-metrics div {
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.source-strip span,
+.market-metrics span {
+  color: var(--muted);
+  font-family: "Trebuchet MS", Verdana, sans-serif;
+  font-size: 12px;
+}
+
+.source-strip svg,
+.market-metrics strong {
+  color: var(--text);
+}
+
 .race-layout {
   display: grid;
   gap: 18px;
@@ -456,6 +509,10 @@ button:disabled {
 .price-box b {
   margin-top: 6px;
   color: var(--negative);
+}
+
+.price-box b.positive {
+  color: var(--positive);
 }
 
 .race-board {
@@ -534,6 +591,12 @@ button:disabled {
   text-transform: uppercase;
 }
 
+.lane-pool {
+  color: var(--muted);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+}
+
 .challenge-layout,
 .detail-panels,
 .lower-grid {
@@ -592,6 +655,10 @@ button:disabled {
 
 .lower-grid {
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+}
+
+.market-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .choice-chip-row {
@@ -764,6 +831,22 @@ button:disabled {
   opacity: 0.45;
 }
 
+.secondary-button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 13px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-family: "Trebuchet MS", Verdana, sans-serif;
+  font-weight: 800;
+}
+
+.secondary-button:disabled {
+  opacity: 0.45;
+}
+
 .panel-note {
   margin: 12px 0 0;
   text-align: center;
@@ -878,6 +961,19 @@ button:disabled {
   font-size: 20px;
 }
 
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 1240px) {
   .arcade-layout {
     grid-template-columns: 220px minmax(0, 1fr);
@@ -890,6 +986,10 @@ button:disabled {
 
   .lower-grid {
     grid-template-columns: 1fr;
+  }
+
+  .market-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -923,6 +1023,11 @@ button:disabled {
   .challenge-layout,
   .positions-head,
   .positions-row {
+    grid-template-columns: 1fr;
+  }
+
+  .source-strip,
+  .market-metrics {
     grid-template-columns: 1fr;
   }
 
