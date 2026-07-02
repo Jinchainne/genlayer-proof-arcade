@@ -164,7 +164,7 @@ button:disabled {
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 20px;
   align-items: center;
   padding: 18px 20px;
@@ -228,8 +228,60 @@ button:disabled {
 .arcade-nav {
   display: flex;
   gap: 10px;
-  justify-content: center;
+  justify-content: flex-start;
   flex-wrap: wrap;
+}
+
+.topbar-center {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.search-shell {
+  display: block;
+  width: 100%;
+}
+
+.search-shell input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  outline: none;
+}
+
+.search-shell input::placeholder {
+  color: var(--muted);
+}
+
+.category-rail {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.category-rail button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.category-rail button.active,
+.category-rail button:hover {
+  color: var(--text);
+  border-color: rgba(108, 229, 255, 0.2);
+  background: rgba(108, 229, 255, 0.08);
 }
 
 .arcade-nav button,
@@ -549,6 +601,7 @@ button:disabled {
 
 .game-menu-item span {
   display: block;
+  text-align: left;
 }
 
 .game-menu-item small {
@@ -570,6 +623,11 @@ button:disabled {
   text-transform: uppercase;
 }
 
+.game-menu-item em {
+  min-width: 58px;
+  text-align: center;
+}
+
 .game-menu-item em,
 .asset-badge {
   background: linear-gradient(135deg, rgba(255, 122, 24, 0.95), rgba(255, 168, 102, 0.82));
@@ -583,6 +641,7 @@ button:disabled {
 .evidence-grid,
 .balance-top,
 .balance-stats,
+.market-grid,
 .positions-table,
 .leaderboard-list {
   display: grid;
@@ -594,6 +653,112 @@ button:disabled {
   gap: 18px;
 }
 
+.browser-head {
+  align-items: center;
+}
+
+.browser-head h3,
+.market-card h4 {
+  margin: 0;
+  font-family: var(--font-sora), Arial, sans-serif;
+}
+
+.browser-head h3 {
+  margin-top: 6px;
+  font-size: 1.2rem;
+}
+
+.browser-chip {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--soft);
+  font-weight: 700;
+}
+
+.market-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.market-card {
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 32%),
+    rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  text-align: left;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.market-card:hover,
+.market-card.active {
+  transform: translateY(-3px);
+  border-color: rgba(255, 122, 24, 0.26);
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.2), inset 0 0 0 1px rgba(255, 122, 24, 0.16);
+}
+
+.market-card-top,
+.market-card-foot,
+.market-card-outcomes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.market-card-top span,
+.market-card-foot em,
+.market-card-foot span {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.market-card-top strong {
+  color: var(--positive);
+  font-family: var(--font-sora), Arial, sans-serif;
+}
+
+.market-card h4 {
+  margin-top: 14px;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.market-card-outcomes {
+  margin-top: 18px;
+}
+
+.market-card-outcomes span {
+  flex: 1;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.market-card-outcomes .yes {
+  background: rgba(86, 240, 180, 0.14);
+  color: var(--positive);
+}
+
+.market-card-outcomes .no {
+  background: rgba(255, 107, 103, 0.12);
+  color: var(--negative);
+}
+
+.market-card-foot {
+  margin-top: 14px;
+}
+
 .game-card {
   overflow: hidden;
   padding: 18px;
@@ -602,6 +767,7 @@ button:disabled {
 .card-head,
 .title-line,
 .panel-topline,
+.browser-head,
 .balance-top,
 .balance-stats div,
 .positions-head,
@@ -1468,6 +1634,46 @@ button:disabled {
   margin-top: 12px;
 }
 
+.related-market {
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  text-align: left;
+}
+
+.related-market strong,
+.related-market span,
+.related-market em {
+  display: block;
+}
+
+.related-market span {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.related-market-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+.related-market-meta em {
+  font-style: normal;
+  font-weight: 700;
+}
+
 .system-panel {
   gap: 14px;
 }
@@ -1608,6 +1814,10 @@ button:disabled {
   .market-metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .market-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1120px) {
@@ -1624,6 +1834,10 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .market-grid {
+    grid-template-columns: 1fr;
+  }
+
   .game-sidebar,
   .arcade-right {
     position: static;
@@ -1634,7 +1848,7 @@ button:disabled {
   }
 
   .game-menu {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1645,6 +1859,7 @@ button:disabled {
 
   .overview-strip,
   .game-menu,
+  .market-grid,
   .market-metrics,
   .evidence-grid,
   .spotlight-grid,

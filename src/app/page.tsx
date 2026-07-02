@@ -16,6 +16,7 @@ import {
   ArrowUp,
   Bot,
   BriefcaseBusiness,
+  ChevronRight,
   Coins,
   FileSearch,
   Flame,
@@ -59,6 +60,7 @@ type GameMode = {
 
 type PositionEntry = {
   id: string;
+  roundNumber: number;
   game: string;
   asset: string;
   pick: string;
@@ -157,7 +159,9 @@ declare global {
 const navItems = ["Trade", "Arcade", "Portfolio", "Leaderboard", "Earn Points", "Guides"] as const;
 const tabs = ["Positions", "Perps", "Originals", "Outcomes", "Open Orders", "Balances", "History"] as const;
 const sizes = [1, 10, 50, 100];
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS;
+const categoryItems = ["Trending", "World Cup", "Politics", "Sports", "Crypto", "AI", "Finance", "Culture", "Economy", "Weather"] as const;
+const DEFAULT_CONTRACT_ADDRESS = "0x5ff368E60E4e49839E6e6B63f0208aFB408d43ae";
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS || DEFAULT_CONTRACT_ADDRESS;
 const STUDIO_NETWORK_NAME = "GenLayer Studio Network";
 const STUDIO_RPC_URL = "https://studio.genlayer.com/api";
 const STUDIO_CHAIN_ID_HEX = "0xf22f";
@@ -341,6 +345,17 @@ const leaderboardPreview = [
   { rank: "#3", wallet: "You", points: "200 pts" }
 ];
 
+const marketDirectory = [
+  { id: "race", category: "Crypto", title: "BTC breakout this round?", chance: "58%", volume: "$604K" },
+  { id: "flip", category: "Crypto", title: "BTC above session open?", chance: "52%", volume: "$188K" },
+  { id: "build", category: "AI", title: "Top GenLayer builder this cycle?", chance: "64%", volume: "$92K" },
+  { id: "judge", category: "Politics", title: "Will the dispute claim be upheld?", chance: "49%", volume: "$71K" },
+  { id: "news-pulse", category: "Trending", title: "Will public evidence confirm the headline?", chance: "61%", volume: "$83K" },
+  { id: "doc-hunt", category: "Finance", title: "Is this trade filing materially inconsistent?", chance: "34%", volume: "$41K" },
+  { id: "roll", category: "Economy", title: "Will ETH volatility breach the target band?", chance: "45%", volume: "$58K" },
+  { id: "spin", category: "Culture", title: "Will the daily spin repo stay freshest?", chance: "57%", volume: "$36K" }
+] as const;
+
 type OverviewItem = {
   label: string;
   value: string;
@@ -361,6 +376,8 @@ const mvpContractInterface = {
 
 export default function HomePage() {
   const [selectedGame, setSelectedGame] = useState<GameId>("race");
+  const [activeCategory, setActiveCategory] = useState<(typeof categoryItems)[number]>("Trending");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCall, setSelectedCall] = useState("");
   const [selectedSize, setSelectedSize] = useState(10);
   const [autoSign, setAutoSign] = useState(true);
@@ -502,6 +519,7 @@ export default function HomePage() {
         setPositions((current) => [
           {
             id: `#${String(roundId).padStart(4, "0")}`,
+            roundNumber: roundId,
             game: activeGame.label,
             asset: activeGame.id === "race" || activeGame.id === "flip" ? "BTC/USD" : activeGame.asset,
             pick: selectedCall,
@@ -517,11 +535,13 @@ export default function HomePage() {
         return;
       }
 
-      setContractStatus("Submitting enter_round transaction on GenLayer...");
-      const txHash = await writeGenLayerContract("enter_round", [String(roundId), selectedCall, selectedSize]);
+      const onchainRoundId = await createOnchainRound(activeGame, liveRound);
+      setContractStatus(`Submitting enter_round for round #${onchainRoundId} on GenLayer...`);
+      const txHash = await writeGenLayerContract("enter_round", [BigInt(onchainRoundId), selectedCall, BigInt(selectedSize)]);
       setPositions((current) => [
         {
-          id: `#${String(roundId).padStart(4, "0")}`,
+          id: `#${String(onchainRoundId).padStart(4, "0")}`,
+          roundNumber: onchainRoundId,
           game: activeGame.label,
           asset: activeGame.id === "race" || activeGame.id === "flip" ? "BTC/USD" : activeGame.asset,
           pick: selectedCall,
@@ -532,9 +552,9 @@ export default function HomePage() {
         },
         ...current
       ]);
-      setRoundId((current) => current + 1);
+      setRoundId(onchainRoundId + 1);
       setActiveTab("Positions");
-      setContractStatus(`Live round entered onchain: ${shortHash(txHash)}`);
+      setContractStatus(`Live round #${onchainRoundId} entered onchain: ${shortHash(txHash)}`);
     } catch (error) {
       setContractStatus(error instanceof Error ? error.message : "enter_round failed.");
     } finally {
@@ -567,9 +587,19 @@ export default function HomePage() {
         return;
       }
 
-      setContractStatus("Submitting resolve_round transaction on GenLayer...");
-      const txHash = await writeGenLayerContract("resolve_round", [String(Math.max(1, roundId - 1))]);
-      setContractStatus(`Resolve transaction accepted: ${shortHash(txHash)}`);
+      const targetRoundId = positions[0]?.roundNumber ?? await readLatestRoundId();
+      if (!targetRoundId) {
+        throw new Error("No live onchain round found to resolve yet.");
+      }
+
+      setContractStatus(`Submitting resolve_round for round #${targetRoundId} on GenLayer...`);
+      const txHash = await writeGenLayerContract("resolve_round", [BigInt(targetRoundId)]);
+      setPositions((current) =>
+        current.map((entry, index) =>
+          index === 0 ? { ...entry, status: "Resolve submitted onchain" } : entry
+        )
+      );
+      setContractStatus(`Resolve transaction accepted for round #${targetRoundId}: ${shortHash(txHash)}`);
     } catch (error) {
       setContractStatus(error instanceof Error ? error.message : "resolve_round failed.");
     } finally {
@@ -608,6 +638,44 @@ export default function HomePage() {
     return txHash;
   }
 
+  async function createOnchainRound(active: GameMode, round: LiveRound | null) {
+    const now = Math.floor(Date.now() / 1000);
+    const question = extractChallenge(active, round);
+    const choices = deriveChoices(active, round).map((choice) => choice.label);
+    const resolutionRules = `${extractEvidence(active, round)} Resolver: GenLayer Intelligent Contract.`;
+
+    setContractStatus("Creating live round on GenLayer...");
+    await writeGenLayerContract("create_round", [
+      question,
+      choices,
+      resolutionRules,
+      BigInt(now),
+      BigInt(now + 24),
+      BigInt(now + 84)
+    ]);
+
+    const latestRoundId = await readLatestRoundId();
+    if (!latestRoundId) {
+      throw new Error("Round created but latest onchain round id could not be confirmed.");
+    }
+    return latestRoundId;
+  }
+
+  async function readLatestRoundId() {
+    if (!CONTRACT_ADDRESS) return 0;
+
+    const publicClient = createPublicClient({
+      chain: genLayerStudionet,
+      transport: http(STUDIO_RPC_URL)
+    });
+    const result = await publicClient.readContract({
+      address: CONTRACT_ADDRESS as `0x${string}`,
+      abi: arcadeAbi,
+      functionName: "get_latest_round_id"
+    });
+    return Number(result);
+  }
+
   return (
     <main className="arcade-shell">
       <div className="arcade-backdrop" aria-hidden="true">
@@ -622,21 +690,30 @@ export default function HomePage() {
         autoSign={autoSign}
         mode={mode}
         nav={nav}
+        searchQuery={searchQuery}
         walletAddress={walletAddress}
         walletBusy={walletBusy}
         walletLabel={walletLabel}
         onConnectWallet={connectWallet}
         onNav={setNav}
+        onSearch={setSearchQuery}
         onToggleAutoSign={() => setAutoSign((current) => !current)}
         onMode={setMode}
       />
+
+      <CategoryRail activeCategory={activeCategory} onSelect={setActiveCategory} />
 
       <TickerRail items={tickerItems} />
 
       <OverviewStrip items={overviewItems} />
 
       <section className="arcade-layout">
-        <SidebarMenu activeGame={selectedGame} onSelect={setSelectedGame} />
+        <SidebarMenu
+          activeCategory={activeCategory}
+          activeGame={selectedGame}
+          onSelect={setSelectedGame}
+          searchQuery={searchQuery}
+        />
 
         <section className="arcade-center">
           <GameBoard
@@ -647,6 +724,7 @@ export default function HomePage() {
             liveError={liveError}
             mode={mode}
           />
+          <MarketBrowser activeCategory={activeCategory} activeGame={selectedGame} onSelect={setSelectedGame} />
           <BottomPanel activeTab={activeTab} positions={positions} onTab={setActiveTab} />
         </section>
 
@@ -676,10 +754,28 @@ export default function HomePage() {
             walletAddress={walletAddress}
             walletLabel={walletLabel}
           />
-          <SideLeaderboard />
+          <RelatedMarkets activeCategory={activeCategory} activeGame={selectedGame} onSelect={setSelectedGame} />
         </aside>
       </section>
     </main>
+  );
+}
+
+function CategoryRail({
+  activeCategory,
+  onSelect
+}: {
+  activeCategory: (typeof categoryItems)[number];
+  onSelect: (value: (typeof categoryItems)[number]) => void;
+}) {
+  return (
+    <section className="category-rail">
+      {categoryItems.map((item) => (
+        <button key={item} type="button" className={activeCategory === item ? "active" : ""} onClick={() => onSelect(item)}>
+          {item}
+        </button>
+      ))}
+    </section>
   );
 }
 
@@ -727,22 +823,26 @@ function TopNav({
   autoSign,
   mode,
   nav,
+  searchQuery,
   walletAddress,
   walletBusy,
   walletLabel,
   onConnectWallet,
   onNav,
+  onSearch,
   onToggleAutoSign,
   onMode
 }: {
   autoSign: boolean;
   mode: Mode;
   nav: NavItem;
+  searchQuery: string;
   walletAddress: string;
   walletBusy: boolean;
   walletLabel: string;
   onConnectWallet: () => void;
   onNav: (value: NavItem) => void;
+  onSearch: (value: string) => void;
   onToggleAutoSign: () => void;
   onMode: (value: Mode) => void;
 }) {
@@ -763,18 +863,29 @@ function TopNav({
         </div>
       </div>
 
-      <nav className="arcade-nav">
-        {navItems.map((item) => (
-          <button
-            key={item}
-            type="button"
-            className={item === nav ? "active" : ""}
-            onClick={() => onNav(item)}
-          >
-            {item}
-          </button>
-        ))}
-      </nav>
+      <div className="topbar-center">
+        <nav className="arcade-nav">
+          {navItems.map((item) => (
+            <button
+              key={item}
+              type="button"
+              className={item === nav ? "active" : ""}
+              onClick={() => onNav(item)}
+            >
+              {item}
+            </button>
+          ))}
+        </nav>
+
+        <label className="search-shell">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => onSearch(event.target.value)}
+            placeholder="Search markets, assets, or evidence..."
+          />
+        </label>
+      </div>
 
       <div className="arcade-actions">
         <div className="autosign-box">
@@ -821,12 +932,22 @@ function TopNav({
 }
 
 function SidebarMenu({
+  activeCategory,
   activeGame,
-  onSelect
+  onSelect,
+  searchQuery
 }: {
+  activeCategory: (typeof categoryItems)[number];
   activeGame: GameId;
   onSelect: (value: GameId) => void;
+  searchQuery: string;
 }) {
+  const visibleMarkets = marketDirectory.filter((item) =>
+    (activeCategory === "Trending" || item.category === activeCategory) &&
+    (item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
   return (
     <motion.aside
       className="game-sidebar"
@@ -834,20 +955,21 @@ function SidebarMenu({
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.45, delay: 0.08 }}
     >
-      <div className="section-kicker">Games</div>
+      <div className="section-kicker">Markets</div>
       <div className="sidebar-copy">
-        <strong>Signal decks</strong>
-        <span>Live feeds, AI judgment, and fast-entry rounds.</span>
+        <strong>Prediction board</strong>
+        <span>Browse high-signal markets, then lock a side in one click.</span>
       </div>
       <div className="game-menu">
-        {baseGames.map((game) => {
+        {visibleMarkets.map((market) => {
+          const game = baseGames.find((entry) => entry.id === market.id)!;
           const Icon = game.icon;
           return (
             <motion.button
-              key={game.id}
+              key={market.id}
               type="button"
-              className={activeGame === game.id ? "game-menu-item active" : "game-menu-item"}
-              onClick={() => onSelect(game.id)}
+              className={activeGame === market.id ? "game-menu-item active" : "game-menu-item"}
+              onClick={() => onSelect(market.id)}
               whileHover={{ x: 6, scale: 1.01 }}
               whileTap={{ scale: 0.985 }}
             >
@@ -856,11 +978,11 @@ function SidebarMenu({
                   <Icon size={17} />
                 </div>
                 <div>
-                  <span>{game.label}</span>
-                  <small>{game.liveEnabled ? "LIVE" : "READY"}</small>
+                  <span>{market.title}</span>
+                  <small>{market.category} • {market.volume}</small>
                 </div>
               </div>
-              <em>{game.asset}</em>
+              <em>{market.chance}</em>
             </motion.button>
           );
         })}
@@ -1302,7 +1424,19 @@ function BalanceCard({ balance, walletAddress }: { balance: string; walletAddres
   );
 }
 
-function SideLeaderboard() {
+function RelatedMarkets({
+  activeCategory,
+  activeGame,
+  onSelect
+}: {
+  activeCategory: (typeof categoryItems)[number];
+  activeGame: GameId;
+  onSelect: (value: GameId) => void;
+}) {
+  const items = marketDirectory
+    .filter((item) => item.id !== activeGame && (activeCategory === "Trending" || item.category === activeCategory))
+    .slice(0, 5);
+
   return (
     <motion.article
       className="game-card side-leaderboard"
@@ -1310,15 +1444,74 @@ function SideLeaderboard() {
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.45, delay: 0.24 }}
     >
-      <div className="section-kicker">Points board</div>
-      {leaderboardPreview.map((entry) => (
-        <div key={entry.rank} className="leaderboard-row compact">
-          <span>{entry.rank}</span>
-          <strong>{entry.wallet}</strong>
-          <em>{entry.points}</em>
-        </div>
+      <div className="section-kicker">Related markets</div>
+      {items.map((item) => (
+        <button key={item.title} type="button" className="related-market" onClick={() => onSelect(item.id)}>
+          <div>
+            <strong>{item.title}</strong>
+            <span>{item.category} • {item.volume}</span>
+          </div>
+          <div className="related-market-meta">
+            <em>{item.chance}</em>
+            <ChevronRight size={16} />
+          </div>
+        </button>
       ))}
     </motion.article>
+  );
+}
+
+function MarketBrowser({
+  activeCategory,
+  activeGame,
+  onSelect
+}: {
+  activeCategory: (typeof categoryItems)[number];
+  activeGame: GameId;
+  onSelect: (value: GameId) => void;
+}) {
+  const items = marketDirectory.filter((item) => activeCategory === "Trending" || item.category === activeCategory);
+
+  return (
+    <motion.section
+      className="game-card market-browser"
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, delay: 0.22 }}
+    >
+      <div className="browser-head">
+        <div>
+          <span className="section-kicker">Market browser</span>
+          <h3>{activeCategory === "Trending" ? "Live prediction board" : `${activeCategory} markets`}</h3>
+        </div>
+        <div className="browser-chip">{items.length} live markets</div>
+      </div>
+
+      <div className="market-grid">
+        {items.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={item.id === activeGame ? "market-card active" : "market-card"}
+            onClick={() => onSelect(item.id)}
+          >
+            <div className="market-card-top">
+              <span>{item.category}</span>
+              <strong>{item.chance}</strong>
+            </div>
+            <h4>{item.title}</h4>
+            <div className="market-card-outcomes">
+              <span className="yes">Yes</span>
+              <span className="no">No</span>
+            </div>
+            <div className="market-card-foot">
+              <em>{item.volume} Vol.</em>
+              <span>{baseGames.find((game) => game.id === item.id)?.asset}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </motion.section>
   );
 }
 
