@@ -175,14 +175,28 @@ class ProofArcadeMVP(gl.Contract):
             if not url:
                 continue
 
-            response = gl.nondet.web.get(url)
-            body = response.body.decode("utf-8", errors="ignore")
-            compact = " ".join(body.split())
+            compact = self._fetch_evidence_text(url)
             snippets.append(f"URL: {url}\nCONTENT: {compact[:1400]}")
 
         if not snippets:
             return "No external evidence URLs were supplied for this round."
         return "\n\n".join(snippets)
+
+    def _fetch_evidence_text(self, url: str) -> str:
+        dynamic_hosts = [
+            "github.com",
+            "cointelegraph.com",
+            "coindesk.com",
+            "ustr.gov",
+        ]
+
+        if any(host in url for host in dynamic_hosts):
+            rendered = gl.nondet.web.render(url, mode="text", wait_after_loaded="3s")
+            return " ".join(str(rendered).split())
+
+        response = gl.nondet.web.get(url)
+        body = response.body.decode("utf-8", errors="ignore")
+        return " ".join(body.split())
 
     def _build_resolution_prompt(
         self,
