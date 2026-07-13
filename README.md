@@ -18,7 +18,7 @@ https://github.com/Jinchainne/genlayer-proof-arcade
 
 GenLayer Proof Arcade is an experimental prediction platform that combines prediction markets, AI-assisted judgement, validator consensus, Intelligent Contracts, and real-world evidence verification.
 
-Instead of relying on a single centralized oracle, outcomes are resolved through GenLayer's AI-powered validator consensus. Validators independently evaluate external evidence and reach agreement on the final result.
+Instead of relying on a single centralized oracle, outcomes are resolved through a GenLayer Intelligent Contract that fetches public evidence URLs during `resolve_round`, asks validators to independently adjudicate the round, and only accepts a verdict when consensus converges on the same winning choice.
 
 This project demonstrates how GenLayer can be used to build AI-native blockchain applications that reason about real-world events.
 
@@ -40,11 +40,12 @@ Users can create and participate in prediction rounds based on real-world events
 
 Prediction outcomes are resolved through AI-assisted judgement using GenLayer validators.
 
-Possible outcomes include:
+The contract now:
 
-- TRUE
-- FALSE
-- UNDETERMINED
+- stores evidence URLs on round creation
+- fetches live public evidence during `resolve_round`
+- runs non-deterministic adjudication through GenLayer validator consensus
+- stores the winning choice, confidence, and evidence summary onchain
 
 ### 📡 Evidence-Based Verification
 
@@ -107,6 +108,9 @@ Frontend Application
  ▼
 GenLayer Intelligent Contract
  │
+ ├── Fetch public evidence URLs
+ ├── Ask validators to adjudicate the round
+ └── Accept consensus winning choice
  ▼
 AI Validators
  │

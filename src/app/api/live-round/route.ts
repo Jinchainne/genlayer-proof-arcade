@@ -37,10 +37,13 @@ function stripHtml(value: string) {
 }
 
 async function loadRaceRound() {
+  const statsUrl = "https://api.exchange.coinbase.com/products/BTC-USD/stats";
+  const bookUrl = "https://api.exchange.coinbase.com/products/BTC-USD/book?level=2";
+  const candlesUrl = "https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60";
   const [ticker, depth, klines] = await Promise.all([
-    fetchJson<any>("https://api.exchange.coinbase.com/products/BTC-USD/stats"),
-    fetchJson<any>("https://api.exchange.coinbase.com/products/BTC-USD/book?level=2"),
-    fetchJson<any[]>("https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60")
+    fetchJson<any>(statsUrl),
+    fetchJson<any>(bookUrl),
+    fetchJson<any[]>(candlesUrl)
   ]);
 
   const bids = Array.isArray(depth.bids) ? depth.bids.slice(0, 8) : [];
@@ -86,6 +89,7 @@ async function loadRaceRound() {
       bidDepth,
       askDepth
     },
+    evidenceUrls: [statsUrl, bookUrl, candlesUrl],
     callPool: {
       MOON: Math.max(2, Math.round((bidDepth / poolBase) * 16)),
       PUMP: Math.max(4, Math.round((bidDepth / poolBase) * 22)),
@@ -119,6 +123,7 @@ async function loadDocHuntRound() {
     updatedAt: new Date().toISOString(),
     source: "USTR press releases",
     challenge,
+    evidenceUrls: matches.map((item) => item.href),
     evidence: matches.length
       ? matches.map((item) => `${item.date} - ${item.title}`).join(" | ")
       : "Official USTR notices and public trade policy releases act as evidence."
@@ -147,6 +152,7 @@ async function loadNewsRound() {
     headline: combined[0]?.title ?? "No headline",
     challenge: combined[1]?.title ?? "Waiting for public confirmation",
     headlines: combined,
+    evidenceUrls: combined.map((item) => item.link).filter(Boolean),
     evidence: "Official blog posts, governance pages, and exchange notices determine confirmation."
   };
 }
@@ -185,7 +191,8 @@ async function loadBuildRound() {
     stars: repo.stargazers_count,
     forks: repo.forks_count,
     updatedAt: repo.updated_at,
-    description: compactText(repo.description ?? "No description")
+    description: compactText(repo.description ?? "No description"),
+    url: repo.html_url
   }));
 
   return {
@@ -193,7 +200,8 @@ async function loadBuildRound() {
     updatedAt: new Date().toISOString(),
     source: "GitHub / genlayerlabs",
     challenge: "Which live GenLayer repository currently shows the strongest public traction and freshness?",
-    candidates
+    candidates,
+    evidenceUrls: candidates.map((candidate) => candidate.url)
   };
 }
 
@@ -218,14 +226,17 @@ async function loadJudgeRound() {
     source: "GitHub / genlayerlabs",
     challenge: liveIssues[0]?.title ?? "No live issue",
     issues: liveIssues,
+    evidenceUrls: liveIssues.map((issue) => issue.url),
     evidence: "Open issues from genlayer-studio, their reproduction steps, and linked references act as live public evidence."
   };
 }
 
 async function loadRollRound() {
+  const statsUrl = "https://api.exchange.coinbase.com/products/ETH-USD/stats";
+  const bookUrl = "https://api.exchange.coinbase.com/products/ETH-USD/book?level=2";
   const [ticker, depth] = await Promise.all([
-    fetchJson<any>("https://api.exchange.coinbase.com/products/ETH-USD/stats"),
-    fetchJson<any>("https://api.exchange.coinbase.com/products/ETH-USD/book?level=2")
+    fetchJson<any>(statsUrl),
+    fetchJson<any>(bookUrl)
   ]);
 
   const bids = Array.isArray(depth.bids) ? depth.bids.slice(0, 6) : [];
@@ -241,6 +252,7 @@ async function loadRollRound() {
     updatedAt: new Date().toISOString(),
     source: "Coinbase Exchange / ETH-USD",
     challenge: `ETH is ${changePercent >= 0 ? "up" : "down"} ${Math.abs(changePercent).toFixed(2)}% from open at ${lastPrice.toFixed(2)} USD. Which risk lane best matches the current volatility band?`,
+    evidenceUrls: [statsUrl, bookUrl],
     evidence: `Open ${openPrice.toFixed(2)} | Last ${lastPrice.toFixed(2)} | Top-of-book depth ${bidDepth.toFixed(2)} bid vs ${askDepth.toFixed(2)} ask.`
   };
 }
@@ -260,6 +272,7 @@ async function loadSpinRound() {
     challenge: fresh
       ? `Daily spin challenge: will ${fresh.name} remain the freshest public GenLayer repo update through the current round window?`
       : "Daily spin challenge is waiting for a public repo freshness signal.",
+    evidenceUrls: repos.slice(0, 3).map((repo) => repo.html_url).filter(Boolean),
     evidence: fresh
       ? `Latest repo: ${fresh.name} | Stars ${fresh.stargazers_count} | Forks ${fresh.forks_count} | Other active repos: ${backups}.`
       : "Public GitHub repo freshness and activity decide the daily spin."
@@ -297,6 +310,7 @@ export async function GET(request: NextRequest) {
       updatedAt: new Date().toISOString(),
       source: "Live shell",
       challenge: "This game mode is waiting for a dedicated live resolver feed.",
+      evidenceUrls: ["https://github.com/genlayerlabs"],
       evidence: "MVP uses the shared GenLayer contract adapter and public sources."
     });
   } catch (error) {

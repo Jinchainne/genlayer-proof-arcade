@@ -76,6 +76,7 @@ type RaceRound = {
   source: string;
   asset: string;
   status: string;
+  evidenceUrls: string[];
   timer: { lockSeconds: number; finishSeconds: number };
   price: {
     last: number;
@@ -98,6 +99,7 @@ type NewsRound = {
   headline: string;
   challenge: string;
   evidence: string;
+  evidenceUrls: string[];
   headlines: Array<{ title: string; link: string; source: string }>;
 };
 
@@ -106,12 +108,14 @@ type BuildRound = {
   updatedAt: string;
   source: string;
   challenge: string;
+  evidenceUrls: string[];
   candidates: Array<{
     name: string;
     stars: number;
     forks: number;
     updatedAt: string;
     description: string;
+    url: string;
   }>;
 };
 
@@ -121,6 +125,7 @@ type JudgeRound = {
   source: string;
   challenge: string;
   evidence: string;
+  evidenceUrls: string[];
   issues: Array<{
     title: string;
     url: string;
@@ -135,6 +140,7 @@ type GenericRound = {
   source: string;
   challenge: string;
   evidence: string;
+  evidenceUrls: string[];
 };
 
 type LiveRound = RaceRound | NewsRound | BuildRound | JudgeRound | GenericRound;
@@ -160,8 +166,7 @@ const navItems = ["Trade", "Arcade", "Portfolio", "Leaderboard", "Earn Points", 
 const tabs = ["Positions", "Perps", "Originals", "Outcomes", "Open Orders", "Balances", "History"] as const;
 const sizes = [1, 10, 50, 100];
 const categoryItems = ["Trending", "World Cup", "Politics", "Sports", "Crypto", "AI", "Finance", "Culture", "Economy", "Weather"] as const;
-const DEFAULT_CONTRACT_ADDRESS = "0x5ff368E60E4e49839E6e6B63f0208aFB408d43ae";
-const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS || DEFAULT_CONTRACT_ADDRESS;
+const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_GENLAYER_CONTRACT_ADDRESS?.trim() || "";
 const STUDIO_NETWORK_NAME = "GenLayer Studio Network";
 const STUDIO_RPC_URL = "https://studio.genlayer.com/api";
 const STUDIO_CHAIN_ID_HEX = "0xf22f";
@@ -186,10 +191,11 @@ const genLayerStudionet = defineChain({
   }
 });
 const arcadeAbi = parseAbi([
-  "function create_round(string question, string[] choices, string resolution_rules, uint256 start_time, uint256 lock_time, uint256 end_time)",
+  "function create_round(string question, string[] choices, string resolution_rules, string[] evidence_urls, uint256 start_time, uint256 lock_time, uint256 end_time)",
   "function enter_round(uint256 round_id, string choice, uint256 points)",
   "function resolve_round(uint256 round_id)",
-  "function claim_reward(uint256 round_id)"
+  "function claim_reward(uint256 round_id)",
+  "function get_latest_round_id() view returns (uint256)"
 ]);
 
 const baseGames: GameMode[] = [
@@ -368,7 +374,7 @@ type TickerItem = {
 };
 
 const mvpContractInterface = {
-  create_round: "create_round(question, choices, resolution_rules, start_time, lock_time, end_time)",
+  create_round: "create_round(question, choices, resolution_rules, evidence_urls, start_time, lock_time, end_time)",
   enter_round: "enter_round(round_id, choice, points)",
   resolve_round: "resolve_round(round_id)",
   claim_reward: "claim_reward(round_id)"
@@ -643,12 +649,14 @@ export default function HomePage() {
     const question = extractChallenge(active, round);
     const choices = deriveChoices(active, round).map((choice) => choice.label);
     const resolutionRules = `${extractEvidence(active, round)} Resolver: GenLayer Intelligent Contract.`;
+    const evidenceUrls = extractEvidenceUrls(round);
 
     setContractStatus("Creating live round on GenLayer...");
     await writeGenLayerContract("create_round", [
       question,
       choices,
       resolutionRules,
+      evidenceUrls,
       BigInt(now),
       BigInt(now + 24),
       BigInt(now + 84)
@@ -1669,6 +1677,11 @@ function extractEvidence(activeGame: GameMode, liveRound: LiveRound | null) {
   if (liveRound?.type === "build") return "Live GitHub repository metrics from the genlayerlabs organization.";
   if (liveRound?.type === "generic") return liveRound.evidence;
   return activeGame.evidenceHint;
+}
+
+function extractEvidenceUrls(liveRound: LiveRound | null) {
+  if (!liveRound) return [];
+  return liveRound.evidenceUrls;
 }
 
 function renderDetailTiles(activeGame: GameMode, liveRound: LiveRound | null) {
